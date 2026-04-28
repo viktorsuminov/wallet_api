@@ -1,0 +1,36 @@
+# Байт-код Python (мусор после запуска)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Окружение и зависимости
+.venv/
+env/
+venv/
+ENV/
+bin/
+lib/
+
+.uv/
+
+.env
+
+# Тесты и качество кода
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Docker
+.docker/
+
+# IDE (настройки твоего редактора)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Система
+.DS_Store
+Thumbs.db
