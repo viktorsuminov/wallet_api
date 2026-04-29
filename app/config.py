@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     postgres_host: str = "db"
     postgres_port: int = 5432
 
+    secret_key: str
+
     @property
     def db_url(self) -> str:
         return(

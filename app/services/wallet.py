@@ -18,12 +18,6 @@ class WalletService:
             raise WalletNotFoundError(f"Wallet {wallet_id} not found")
         return wallet
 
-    async def create_wallet(self) -> Wallet:
-        async with self.session.begin():
-            wallet = Wallet(balance=Decimal("0.00"))
-            self.session.add(wallet)
-        return wallet
-
     async def apply_operation(
         self,
         wallet_id: UUID,
@@ -65,9 +59,9 @@ class WalletService:
     ) -> tuple[list[Transaction], int]:
         await self.get_wallet(wallet_id)
 
-        count_stmt = select(func.count()).where(Transaction.wallet_id == wallet_id)
+        count_stmt = select(func.count()).select_from(Transaction).where(Transaction.wallet_id == wallet_id)
         total_result = await self.session.execute(count_stmt)
-        total = total_result.scalar()
+        total = total_result.scalar() or 0
 
         stmt = (
             select(Transaction)
@@ -77,6 +71,6 @@ class WalletService:
             .limit(limit)
         )
         result = await self.session.execute(stmt)
-        transaction = result.scalars().all()
+        transactions = result.scalars().all()
 
-        return list(transaction), total
+        return list(transactions), total
