@@ -14,12 +14,12 @@ async def lifespan(app:FastAPI):
 app = FastAPI(
     title="Wallet API",
     description="Управление кошельком и транзакциями",
-    version="1.0.0.",
+    version="1.0.0",
     lifespan=lifespan
 )
 
 app.include_router(wallets_router, prefix="/api/v1")
 
 @app.get("/health", tags=["system"])
-async def heakth_check():
+async def health_check():
     return{"status": "ok"}

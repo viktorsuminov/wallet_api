@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, CheckConstraint, Enum, ForeignKey
+from sqlalchemy import DECIMAL, CheckConstraint, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -15,13 +15,33 @@ class OperationType(enum.Enum):
     DEPOSIT = "DEPOSIT"
     WITHDRAW = "WITHDRAW"
 
+class User(Base):
+
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    wallet: Mapped["Wallet"] = relationship(
+        "Wallet",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False
+    )
+
 class Wallet(Base):
 
     __tablename__ = "wallets"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     balance: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0.00"))
-    transactions: Mapped[list["Transaction"]] = relationship(back_populates="wallet", cascade="all, delete-orphan")
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    transactions: Mapped[list["Transaction"]] = relationship(
+        back_populates="wallet",
+        cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("balance >= 0", name="negative_balance_check"),
