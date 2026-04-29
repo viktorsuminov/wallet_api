@@ -9,13 +9,11 @@ from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
 
-# Используем базу из конфига (для ТЗ можно тестовую, но проще текущую)
 engine = create_async_engine(settings.db_url)
 TestingSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def setup_db():
-    """Создаем таблицы перед началом всех тестов и сносим после"""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -26,27 +24,19 @@ async def setup_db():
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
         yield session
+        await session.close()
 
 @pytest_asyncio.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    async def _get_test_db():
-        yield db_session
-
-    app.dependency_overrides[get_session] = _get_test_db
-
+    app.dependency_overrides[get_session] = lambda: db_session
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
-
     app.dependency_overrides.clear()
 
 @pytest_asyncio.fixture
-async def auth_headers(client: AsyncClient) -> dict:
-    email = "test@example.com"
-    password = "password123"
-
-    await client.post("/api/v1/auth/register", json={"email": email, "password": password})
-
-    response = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+async def auth_headers(client: AsyncClient) -> dict[str, str]:
+    user_data = {"email": "test@example.com", "password": "password123"}
+    await client.post("/api/v1/auth/register", json=user_data)
+    response = await client.post("/api/v1/auth/login", json=user_data)
     token = response.json()["access_token"]
-
     return {"Authorization": f"Bearer {token}"}

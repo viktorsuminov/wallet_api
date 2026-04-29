@@ -38,6 +38,8 @@ class Wallet(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     balance: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0.00"))
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+
+    user: Mapped["User"] = relationship("User", back_populates="wallet")
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="wallet",
         cascade="all, delete-orphan"
