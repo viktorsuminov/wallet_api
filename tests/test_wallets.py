@@ -1,5 +1,6 @@
 # tests/test_wallets.py
 import asyncio
+
 import pytest
 from httpx import AsyncClient
 
@@ -32,7 +33,7 @@ async def test_concurrent_deposit(client: AsyncClient, auth_headers: dict):
     """
     amount_per_request = 100
     num_requests = 10
-    
+
     async def make_deposit():
         response = await client.post(
             "/api/v1/wallets/me/operation",
@@ -40,15 +41,12 @@ async def test_concurrent_deposit(client: AsyncClient, auth_headers: dict):
             headers=auth_headers
         )
         return response.status_code
-    
-    # Запускаем конкурентно — httpx + asyncpg сами возьмут соединения из пула
+
     results = await asyncio.gather(*[make_deposit() for _ in range(num_requests)])
-    
+
     assert all(r == 200 for r in results), f"Failed: {results}"
-    
-    # Проверяем баланс
+
     final = await client.get("/api/v1/wallets/me", headers=auth_headers)
     balance = float(final.json()["balance"])
-    
+
     assert balance == amount_per_request * num_requests
-    
