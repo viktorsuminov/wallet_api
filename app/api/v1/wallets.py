@@ -4,7 +4,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.db.session import get_session
-from app.exceptions.wallet import InsufficientFundsError, WalletNotFoundError
+from app.exceptions.wallet import (
+    InsufficientFundsError,
+    WalletAccessDeniedError,
+    WalletNotFoundError,
+)
 from app.schemas.wallets import OperationRequest, TransactionListResponse, WalletResponse
 from app.services.wallet import WalletService
 
@@ -28,11 +32,14 @@ async def perform_operation_me(
     try:
         return await service.apply_operation(
             wallet_id=current_user.wallet.id,
+            user_id=current_user.id,
             operation_type=operation_data.operation_type,
             amount=operation_data.amount
         )
     except WalletNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except WalletAccessDeniedError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
     except InsufficientFundsError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
@@ -44,8 +51,15 @@ async def get_my_transactions(
     service: WalletService = Depends(get_wallet_service)
 ):
     try:
-        transactions, total = await service.get_transactions(current_user.wallet.id, limit, offset)
+        transactions, total = await service.get_transactions(
+            current_user.wallet.id,
+            current_user.id,
+            limit,
+            offset,
+        )
         return TransactionListResponse(items=transactions, total=total)
     except WalletNotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    except WalletAccessDeniedError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
 

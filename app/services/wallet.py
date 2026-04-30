@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import OperationType as DbOperationType
 from app.db.models import Transaction, Wallet
-from app.exceptions.wallet import InsufficientFundsError, WalletNotFoundError
+from app.exceptions.wallet import (
+    InsufficientFundsError,
+    WalletAccessDeniedError,
+    WalletNotFoundError,
+)
 
 
 class WalletService:
@@ -22,6 +26,7 @@ class WalletService:
     async def apply_operation(
         self,
         wallet_id: UUID,
+        user_id: UUID,
         operation_type: object,
         amount: Decimal
     ) -> Wallet:
@@ -42,6 +47,9 @@ class WalletService:
 
         if not wallet:
             raise WalletNotFoundError(f"Wallet {wallet_id} not found")
+
+        if wallet.user_id != user_id:
+            raise WalletAccessDeniedError("Access denied to this wallet")
 
         if db_operation_type == DbOperationType.WITHDRAW:
             if wallet.balance < amount:
@@ -66,10 +74,13 @@ class WalletService:
     async def get_transactions(
             self,
             wallet_id: UUID,
+            user_id: UUID,
             limit: int,
             offset: int
     ) -> tuple[list[Transaction], int]:
-        await self.get_wallet(wallet_id)
+        wallet = await self.get_wallet(wallet_id)
+        if wallet.user_id != user_id:
+            raise WalletAccessDeniedError("Access denied to this wallet")
 
         count_stmt = select(func.count()).select_from(Transaction).where(Transaction.wallet_id == wallet_id)
         total_result = await self.session.execute(count_stmt)
