@@ -42,16 +42,28 @@ docker-compose up --build
 
 После запуска API будет доступно по адресу: `http://localhost:8000`
 
-* **Swagger UI (Интерактивная документация)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Swagger UI (интерактивная документация)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Redoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-### Основные эндпоинты:
-* `POST /api/v1/wallets/` — создать новый кошелек.
-* `GET /api/v1/wallets/{WALLET_UUID}` — получить баланс кошелька.
-* `POST /api/v1/wallets/{WALLET_UUID}/operation` — выполнить операцию (DEPOSIT или WITHDRAW).
+### Основные эндпоинты
+
+#### Авторизация
+* `POST /api/v1/auth/register` — регистрация пользователя.
+* `POST /api/v1/auth/login` — вход и получение JWT access token.
+
+#### Кошелек (только для авторизованного пользователя)
+* `GET /api/v1/wallets/me` — получить свой кошелек.
+* `POST /api/v1/wallets/me/operation` — выполнить операцию (`DEPOSIT` или `WITHDRAW`).
+* `GET /api/v1/wallets/me/transactions` — получить историю своих операций.
+
+### Как авторизоваться в Swagger
+1. Выполните `POST /api/v1/auth/login` и скопируйте `access_token` из ответа.
+2. Нажмите кнопку **Authorize** в правом верхнем углу Swagger.
+3. Вставьте токен в поле Bearer и подтвердите авторизацию.
+4. После этого можно вызывать защищенные ручки `/api/v1/wallets/me*`.
 
 ## Тестирование
-Для запуска тестов (внутри контейнера или локально):
+Для запуска тестов внутри контейнера:
 ```bash
-pytest
+docker compose exec app uv run pytest -q
 ```

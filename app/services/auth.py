@@ -20,17 +20,16 @@ class AuthService:
         if result.scalar_one_or_none():
             raise UserAlreadyExistsError(f"User with email {user_data.email} already exists")
 
-        async with self.session.begin():
-            new_user = User(
-                email=user_data.email,
-                hashed_password=hash_password(user_data.password)
-            )
-            self.session.add(new_user)
+        new_user = User(
+            email=user_data.email,
+            hashed_password=hash_password(user_data.password)
+        )
+        self.session.add(new_user)
+        await self.session.flush()
 
-            await self.session.flush()
-
-            new_wallet = Wallet(user_id=new_user.id)
-            self.session.add(new_wallet)
+        new_wallet = Wallet(user_id=new_user.id)
+        self.session.add(new_wallet)
+        await self.session.commit()
 
         await self.session.refresh(new_user)
         return new_user

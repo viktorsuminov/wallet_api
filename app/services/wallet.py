@@ -4,7 +4,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import OperationType, Transaction, Wallet
+from app.db.models import OperationType as DbOperationType
+from app.db.models import Transaction, Wallet
 from app.exceptions.wallet import InsufficientFundsError, WalletNotFoundError
 
 
@@ -21,33 +22,44 @@ class WalletService:
     async def apply_operation(
         self,
         wallet_id: UUID,
-        operation_type: OperationType,
+        operation_type: object,
         amount: Decimal
     ) -> Wallet:
-        async with self.session.begin():
-            stmt = select(Wallet).where(Wallet.id == wallet_id).with_for_update()
-            result = await self.session.execute(stmt)
-            wallet = result.scalar_one_or_none()
+        if isinstance(operation_type, DbOperationType):
+            db_operation_type = operation_type
+        else:
+            op_value = getattr(operation_type, "value", operation_type)
+            db_operation_type = DbOperationType(str(op_value))
 
-            if not wallet:
-                raise WalletNotFoundError(f"Wallet {wallet_id} not found")
+        stmt = (
+            select(Wallet)
+            .where(Wallet.id == wallet_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        result = await self.session.execute(stmt)
+        wallet = result.scalar_one_or_none()
 
-            if operation_type == OperationType.WITHDRAW:
-                if wallet.balance < amount:
-                    raise InsufficientFundsError(
-                        f"InsufficientFundsError funds. Balance:{wallet.balance}, Request:{amount}"
-                    )
-                wallet.balance -= amount
+        if not wallet:
+            raise WalletNotFoundError(f"Wallet {wallet_id} not found")
 
-            elif operation_type == OperationType.DEPOSIT:
-                wallet.balance += amount
+        if db_operation_type == DbOperationType.WITHDRAW:
+            if wallet.balance < amount:
+                raise InsufficientFundsError(
+                    f"Insufficient funds. Balance: {wallet.balance}, Request: {amount}"
+                )
+            wallet.balance -= amount
+        elif db_operation_type == DbOperationType.DEPOSIT:
+            wallet.balance += amount
 
-            transaction = Transaction(
-                wallet_id=wallet.id,
-                operation_type=operation_type,
-                amount=amount
-            )
-            self.session.add(transaction)
+        transaction = Transaction(
+            wallet_id=wallet.id,
+            operation_type=db_operation_type,
+            amount=amount
+        )
+        self.session.add(transaction)
+        await self.session.commit()
+        await self.session.refresh(wallet)
 
         return wallet
 
